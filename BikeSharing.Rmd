@@ -1,0 +1,301 @@
+---
+title: "Pedaling Patterns and Factors Influencing Casual Bike Ridership"
+author:
+- Joseph Ouyang
+- josephou
+date: "Due Wed, October 22, at 11:59PM"
+output:
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: cosmo
+    toc: yes
+    toc_float: yes
+optin: TRUE
+---
+
+```{r, include=FALSE}
+###########################
+# STYLE EDITS: IGNORE THIS
+###########################
+knitr::opts_chunk$set(message = FALSE) # include this if you don't want markdown to knit messages
+knitr::opts_chunk$set(warning = FALSE) # include this if you don't want markdown to knit warnings
+knitr::opts_chunk$set(echo = TRUE) # set echo=FALSE to hide code from html output
+```
+
+```{r, echo = FALSE}
+
+library("knitr")
+library("kableExtra")
+library("pander")
+library("readr")
+library("magrittr")
+library("car")
+library("interactions")
+library("leaps")
+
+```
+
+```{r, echo=FALSE}
+
+# TO BEGIN:
+# 
+# 1) Read the "project1-instructions" on 
+#    Canvas->Files->project-materials->project1-materials:
+# https://canvas.cmu.edu/files/13349905/download?download_frd=1
+# 
+# 2) Load the packages by running the previous chunk.
+#
+# 3) To load the possible datasets, run the following:
+
+bikes <- readr::read_csv("bikes.csv")
+court <- readr::read_csv("court.csv")
+nyc <- readr::read_csv("nyc.csv")
+social <- readr::read_csv("social.csv")
+
+# 4) Read the corresponding data descriptions
+#    in the "data-story-prompts" folder on: 
+#    Canvas->files->project-materials->project1-materials:
+# https://canvas.cmu.edu/courses/48344/files/folder/project-materials/project1(dueWed-Oct22)/data-story-prompts
+
+```
+
+# Introduction
+
+Transportation networks represent a significant economic sector, shaping how cities function and affecting both ecological outcomes and community well-being. The rise of bike sharing programs has provided cities with a practical tool for addressing congestion and pollution, now operating in hundreds of locations globally with substantial ridership. As metropolitan areas continue to expand and face mounting challenges related to mobility and environmental quality, analytical approaches have become essential for managing these transportation alternatives effectively. In the present paper, we focus on casual bike sharing ridership patterns in the Washington D.C./Arlington, VA/MD area, and determine whether there are any specific factors that contribute to hourly usage among casual riders.
+
+\newpage
+
+# Exploratory Data Analysis
+
+## Data
+
+Referencing Capital Bikeshare's casual bike usage data, we analyze a random sample of 656 hours and 4 variables. After that, we analyze the relationship between causal bike usage (our response variable) with the three predictor variables (weather, temperature, and windspeed). Summaries of the variables are listed below:
+
+`Casual`: number of bike users (measured by the number of bikers in an hour block)
+
+`Weather`: type of weather (falling into three categories of clear, misty, and rain/snow)
+
+`Temperature`: temperature, (scaled as percentage of the dataset's overall maximum, with numbers closer to 1 being warmer)
+
+`Windspeed`: windspeed, (scaled as percentage of the dataset's overall maximum, with numbers closer to 1 being windier)
+
+Below are the first few lines from the data set:
+
+```{r, echo = FALSE}
+head(bikes)
+```
+## Univariate EDA
+
+First, we will analyze the response variable and all the predictor variables individually. Our methodology will be to use a histogram for the continuous variables (Casual, Temperature, and Windspeed) and bar graph for our categorical variable (Weather). 
+
+\newpage
+
+```{r, echo = FALSE}
+hist(bikes$Casual, main = "Casual Bike Users", xlab = "Number of Casual Bike Users")
+```
+\vspace{36pt}
+
+```{r, echo = FALSE}
+barplot(table(bikes$Weather), main = "Weather", xlab = "Weather Type", ylab = "Frequency")
+```
+\newpage
+
+```{r, echo = FALSE}
+hist(bikes$Temp, main = "Temperature", xlab = "Temperature (scaled as percentage of dataset's overall maximum, from 0 to 1)")
+```
+\vspace{36pt}
+
+```{r, echo = FALSE}
+hist(bikes$Windspeed, main = "Windspeed", xlab = "Windspeed (scaled as percentage of dataset's overall maximum, from 0 to 1)")
+```
+\newpage
+Additionally, we include numerical summaries of each variable listed below:
+\newline
+\newline
+For `Casual`:
+```{r, echo = FALSE}
+summary(bikes$Casual)
+```
+
+For `Weather`:
+```{r, echo = FALSE}
+table(bikes$Weather)
+```
+
+For `Temperature`:
+```{r, echo = FALSE}
+summary(bikes$Temp)
+```
+
+For `Windspeed`:
+```{r, echo = FALSE}
+summary(bikes$Windspeed)
+```
+
+\vspace{12pt}
+Looking at the plotted graphs and numerical summaries above, we can make several comments about our variables. The distribution of **Casual** Bike Users is right skewed and unimodal, with the mean being greater than the median. The distribution has a peak of about 275 hour blocks at 0 to 5 casual bike users, is centered around 8 casual bike users, and ranges from 0 to 39 casual bike users. For **Weather**, we observe 387 clear hours, 197 misty hours, and 72 rainy/snowy hours. The **Temperature** distribution appears to be unimodal and roughly symmetric, with the mean and median being very similar. The distribution is centered around 0.44, or 44% of the dataset's overall maximum temperature and has an interquartile range of 0.285. The **Windspeed** distribution appears to be right skewed and unimodal, but there also exists a smaller peak at around 0.3 or 30% of the dataset's overall maximum windspeed. Overall, the distribution is centered around 0.1642 with windspeed percentages ranging from 0 to 0.7164.
+
+\newpage
+
+## Bivariate EDA
+
+\vspace{12pt}
+
+Before we continue with Bivariate EDA, we will first transform some of the variables, namely **Casual** and **Windspeed**, which are both right skewed. We will apply log transformations to both.
+
+\vspace{12pt}
+
+For `Casual`:
+
+\vspace{12pt}
+
+```{r}
+bikes$log.casual <- log(bikes$Casual + 1.1)
+```
+
+\vspace{12pt}
+
+```{r, echo = FALSE}
+hist(bikes$log.casual, main = "Log(Casual)", xlab = "Log(Casual Bike Users)")
+```
+
+\newpage
+
+For `Windspeed`:
+
+\vspace{12pt}
+
+```{r}
+bikes$log.windspeed <- log(bikes$Windspeed + 1.1)
+```
+
+\vspace{12pt}
+
+```{r, echo = FALSE}
+hist(bikes$log.windspeed, main = "Log(Windspeed)", xlab = "Log(Windspeed) (in log of percentage of overall maximum)")
+```
+
+\vspace{12pt}
+
+After applying the log transformations, the histogram of log(Casual) appears approximately normal, indicating that the transformation successfully stabilized variance and reduced skewness. In contrast, log(Windspeed) still shows a slight right skew, though it is noticeably weaker than before. Despite this remaining skew, the transformation improves model fit and better satisfies the assumptions of linear regression. A small gap between 0.1 and 0.2 on the log(Windspeed) histogram is visible, but this is simply an artifact of the dataset, reflecting fewer observations in that range rather than any underlying issue with the transformation. Overall, these refinements allow us to confidently proceed to bivariate EDA, examining how each predictor variable relates to the response variable, Casual, as presented on the following page:
+
+\newpage
+
+```{r, echo = FALSE}
+boxplot(log.casual ~ Weather, main = "Log(Number of Casual Bike Users) by Weather Type", xlab = "Weather Type", ylab = "Log(Number of Casual Bike Users)", data = bikes)
+```
+
+\vspace{36pt}
+
+```{r, echo = FALSE}
+plot(log.casual ~ Temp, data = bikes, main = "Log(Number of Casual Bike Users) by Temperature", xlab = "Temperature (percentage of overall maximum)", ylab = "Log(Number of Casual Bike Users)")
+```
+
+\newpage
+
+```{r, echo = FALSE}
+plot(log.casual ~ log.windspeed, data = bikes, main = "Log(Number of Casual Bike Users) by Log(Windspeed)", xlab = "Log(Windspeed) (in log of percentage of overall maximum)", ylab = "Log(Number of Casual Bike Users)")
+```
+
+\vspace{12pt}
+Referencing the graphs above, we observe that the median of `log(Casual)` is lower for rainy/snowy `Weather`, when compared to the medians of clear and misty weather, which have similar higher numbers of casual biker users. To generalize, when the weather gets worse, the number of casual bike users decreases. The log of the number of casual bike users seems to be positively associated with `Temp`. As temperature increases, the number of casual bike  users also increases. The log of the number of casual users does not seem to be related to the log of `Windspeed`, as we observe no clear pattern to the data. The points on the scatterplot seem to be randomly distributed with no clear upward or downward trend, which suggests no linear relationship at worst, or a very weak relationship at best.  
+
+# Modeling
+
+After conducting univariate and bivariate EDA to visualize the relationships among our variables, we will now construct our linear regression model to predict the number of casual bike users.
+
+At first glance, there appears to be no clear relationship between the log of the number of casual bike users and the log of windspeed. Upon further analysis, however, there appears to be a very weak positive linear relationship between the two variables. After analyzing the regression summary, `log(Windspeed)` was determined to be statistically significant at the 5% level and meaningfully improved the adjusted R^2 when combined with other predictors. Therefore, `log(Windspeed)` was kept in the new regression model. `Temp` exhibited a significant positive relationship with the log of the number of casual bike users according to both the EDA and regression summary, so it was also included in the new regression model.
+
+Since the quantitative variables `Temp` and `log(Windspeed)` are in the new regression model, we will check for multicollinearity. First we examine the variance inflation factors (vifs) of each variable in the new regression model that predicts the response variable `Casual`. 
+
+\newpage
+
+```{r, echo = FALSE}
+casual_linmod <- lm(log.casual ~ Weather + Temp + log.windspeed, data = bikes)
+```
+
+```{r, echo = FALSE}
+vif(casual_linmod)
+```
+\vspace{12pt}
+
+The vifs of `Weather`, `Temp`, and `log(Windspeed)` are 1.007123, 1.019726, and 1.018617, respectively. These vif values are acceptable because they are all below 2.5. Hence, we can move forward with the model because there are no significant multicollinearity issues.
+
+From our new multiple linear regression model predicting Number of Casual Users from `Weather`, `Temp`, and `log(Windspeed)`, we now examine the residual plot and qq plot below: 
+
+\vspace{12pt}
+
+```{r, echo = FALSE}
+plot(casual_linmod, which = 1)
+```
+\vspace{36pt}
+
+On the residual plot, we examine that there is no clear pattern, aside from a slight downward slide of the lower residuals. Among all the models tested, this residual plot appeared the most stable, as the others displayed similar patterns without showing any clearer improvement. Overall, the independence assumption is reasonably satisfied. Since there is generally constant spread above and below the zero line as we scan left to right, the constant spread assumption is reasonably satisfied. Looking from left to right, the mean of the residuals seems to change from slightly positive to slightly negative. However, when we take into consideration the whole residual plot, the mean of the residuals is roughly centered around zero. Therefore, the mean zero assumption is reasonably satisfied. 
+
+\newpage
+
+```{r, echo = FALSE}
+plot(casual_linmod, which = 2)
+```
+
+\vspace{12pt}
+
+On the qq plot, we observe that the residuals mostly follow the diagonal line, aside from some minor deviations at the tails. Small departures from normality at the tails, however, do not invalidate the normality assumption because this data comes from a large sample. With the assumptions from the residual plot and qq plot being reasonably satisfied, there is no need to try other transformations. Therefore, we can proceed with this multiple linear regression model. The regression analysis summary from this final model is shown below:
+
+\vspace{12pt}
+
+```{r, echo = FALSE}
+summary(casual_linmod)
+```
+
+\newpage
+
+## Justification
+
+We consider this a reasonable model to predict `Casual` since the red line of the residual plot is relatively smooth, meaning the linearity condition is reasonably satisfied. Some other models we constructed included interaction terms between `Weather` and `Temp`, and between `Weather` and `log(Windspeed)`. Although adding interaction terms slightly increased the adjusted R^2 value (by about 1%), the improvement did not justify a model switch because all of the interaction terms were not statistically significant at the 5% level.
+
+Additionally, we constructed a quadratic model with an additional `(Temp)^2` term. While the quadratic model increased the adjusted R^2 and more accurately reflected the observed curvature between temperature and ridership, including this term did not reflect the client's request for a **linear** regression model.  
+
+## Analysis
+
+The regression F-test p-value is about 2.2x10^(-16) which is less than 0.05, implying statistical significance. With the exception of misty weather showing no statistically significant difference in number of casual bike users when compared to the baseline clear weather, all the other predictor coefficients are significant in the model with p-values less than 0.05.
+
+We observe a negative coefficient value (-0.41753) for the categorical dummy variable `Weatherrain/snow` which is consistent with the side-by-side box plots, showing that rainy/snowy weather, on average, correlates to lower numbers of casual bike users. The positive `Temp` coefficient (2.27067) is consistent with the EDA because the log of the number of casual bike users is shown to increase when temperature increases. The positive `log(Windspeed)` coefficient (1.69646) is also consistent with the EDA and regression summary because the log of the number of casual bike users is shown to increase when the log of windspeed increases.
+
+## Conclusion
+
+In summary, we determine this multiple linear regression model to be the best fit because of the following reasons: the signs of the coefficients reflect the EDA, most of the coefficients are themselves statistically significant with p-values less than 0.05, and this model's R^2 value of 0.1429 is as high as it can get when balancing explanatory power with model simplicity. The relatively low R^2 value of 0.1429 is expected for behavioral data like bike-share usage, since ridership is influenced by many unobserved factors such as time of day, day of week, proximity to stations, and personal or social motivations that extend beyond weather and temperature. In conclusion, we are confident that clear and misty weather, higher temperatures, and faster windspeeds are associated with higher numbers of casual bike users in a given hour.  
+
+\newpage
+
+# Prediction
+
+With our newly constructed multiple linear regression model, we can now predict the number of casual bike users for an hour with misty/cloudy weather, a scaled temperature of 0.75, and a scaled windspeed of 0.25.
+
+The predicted number of casual bike users is shown below:
+
+```{r}
+0.62812 + 0.01105 + 2.27067*(0.75) + 1.69646*log(0.25 + 1.1)  
+```
+
+Since this predicted value is under the log transformation, we will exponentiate to calculate the actual predicted number of casual bike users under the specified conditions above.
+
+```{r}
+exp(2.851288) - 1.1
+```
+
+The predicted number of casual bike users for an hour with misty/cloudy weather, a scaled temperature of 0.75, and a scaled windspeed of 0.25 is **16.21006**. In context, 16.21006 casual bike users sits roughly between the mean (11.51) and Q3 (20.00) of the response variable's (number of casual bike users) distribution.  
+
+# Discussion
+
+Through this statistical analysis we learned that the number of casual bike users is related to the type of weather, temperature, and windspeed. In a given hour with clear or misty weather, relatively high temperatures, and relatively fast windspeeds, the number of casual bike users is higher, on average.  
+
+One possible source of concern is the low outliers displayed on the residual plot. Those outliers may represent unusually low ridership hours that the model fails to capture, such as during extreme weather conditions, late-night periods, or system maintenance times not reflected in the dataset. Another possible area of concern is the subtle downward slide and growing spread of the residuals as we scan left to right. This pattern suggests that the relationship between temperature and ridership could be more complex or even non-linear, potentially leveling off or reversing more sharply during very hot hours. 
+
+The similarity in number of casual bike users for clear weather and misty weather is interesting and would warrant further investigation, because one would think that misty weather would decrease ridership in a given time period as bikers would not be able to see clearly. Furthermore, the possible non-linear relationship between temperature and number of casual bike users could be an area for further investigation. Statisticians could determine the approximate temperature when the rate of ridership increase starts to significantly drop off, which could provide practical insights relating to budgetary saving for bike-share companies.
+
+Overall, this study highlights how environmental conditions shape short-term transportation behavior and demonstrates the value of data-driven modeling in urban planning. By understanding how temperature, weather, and windspeed influence ridership, cities can optimize bike availability and maintenance schedules to match demand. Ultimately, incorporating such analytical insights can help promote more efficient, sustainable, and user-responsive transportation systems.
